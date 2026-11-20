@@ -30,3 +30,8 @@ Draft listing copy, privacy policy, icon, feature graphic, and portrait preview 
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+
+## Complete Play Store asset pack
+
+Download the [complete asset pack ZIP](playstore/Shobu-Play-Store-assets.zip), containing the app icon, feature graphic, phone screenshots, listing copy, privacy policy, and release checklist.
