@@ -1,22 +1,32 @@
 # Shobu for Android
 
-A local two-player Shobu game. The four boards remain upright in a fixed 2×2 arrangement; players pass the device between turns. Switch between dark and light themes with the sun/moon button in the upper-left corner; the choice is remembered.
+An offline, local two-player Shobu game. Four boards stay in a fixed 2×2 layout, and players pass one phone or tablet between turns. Includes pulsing legal-move markers, simple push/ejection animation, undo during the push step, a clear named winner screen, and a persistent dark/light theme switch.
 
 ## Play
 
-- Black starts and owns the two bottom homeboards; White owns the two top homeboards.
-- A turn is a setup move of 1–2 clear spaces on one of your homeboards, then the same direction and distance on a board of the opposite shade.
-- The push move may shove one opposing stone, including off the board. Stones cannot jump, and your own stones cannot be pushed.
+- Black starts and owns the two bottom home boards; White owns the two top boards.
+- Each turn begins with a 1–2 space move on one of your home boards, then repeats the same direction and distance on a board of the opposite shade.
+- The second move may push one opposing stone, including off the edge. Stones cannot jump, and your own stones cannot be pushed.
 - Remove all opposing stones from any one board to win.
 
-The app works fully offline. Legal setup destinations pulse; pushed stones slide and shrink as they leave the board. A clear victory screen names the winner. Use **Undo** during the push step to reconsider the setup move.
+The app works offline. It does not include accounts, ads, analytics, or in-app purchases.
 
 ## Build
 
-Open this folder in Android Studio, or build from the command line with Java 17+ and Android SDK Platform 35 installed:
+Open the project folder in Android Studio or use Java 17+, Android SDK Platform 36, Android Gradle Plugin 8.10.0, and Gradle 8.11.1:
 
 ```sh
 ./gradlew testDebugUnitTest assembleDebug
 ```
 
-The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
+For a Play upload, build a release Android App Bundle (`bundleRelease`) and sign it with a private upload key. Keep signing credentials outside this public repository and use Play App Signing.
+
+The project targets Android 16 / API 36. The current repository APK is an installable v1.1 debug build; it is for direct testing and is not the Play upload package.
+
+## Google Play preparation
+
+Draft listing copy, privacy policy, icon, feature graphic, and portrait preview images are in [`playstore/`](playstore/). The preview screenshots are rendered from the current interface and sample states; capture or verify them against the final release build before production submission.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
