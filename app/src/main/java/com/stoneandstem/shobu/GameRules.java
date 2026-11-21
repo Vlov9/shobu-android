@@ -54,6 +54,22 @@ public final class GameRules {
 
     public GameRules() { reset(); }
 
+    /** Creates an independent search copy, including an unfinished setup/push turn. */
+    public GameRules(GameRules other) {
+        if (other == null) throw new IllegalArgumentException("Position cannot be null");
+        for (int b = 0; b < BOARD_COUNT; b++)
+            for (int r = 0; r < SIZE; r++)
+                System.arraycopy(other.pieces[b][r], 0, pieces[b][r], 0, SIZE);
+        currentPlayer = other.currentPlayer;
+        turnNumber = other.turnNumber;
+        winner = other.winner;
+        phase = other.phase;
+        passiveMove = other.passiveMove;
+        passiveOptions = new ArrayList<>(other.passiveOptions);
+    }
+
+    public GameRules copy() { return new GameRules(this); }
+
     public void reset() {
         for (int b = 0; b < BOARD_COUNT; b++) {
             for (int c = 0; c < SIZE; c++) {

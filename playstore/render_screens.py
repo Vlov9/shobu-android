@@ -26,7 +26,7 @@ def stone(d,x,y,r,player):
     dot(d,x+r*.08,y+r*.13,r*1.02,shadow); dot(d,x,y,r,fill,edge,.75); dot(d,x-r*.28,y-r*.32,r*.21,hi)
 def initial():
     return [[[2,2,2,2],[0,0,0,0],[0,0,0,0],[1,1,1,1]] for _ in range(4)]
-def render(name,theme='dark',phase='setup',selected=False,victory=False):
+def render(name,theme='dark',phase='setup',selected=False,victory=False,ai_chooser=False):
     p=DARK if theme=='dark' else LIGHT; im=Image.new('RGB',(W,H),p['bg']); d=ImageDraw.Draw(im)
     w=W/S; h=(H-STATUS-NAV)/S
     d.rectangle((0,STATUS,W,H-NAV),fill=p['bg'])
@@ -80,15 +80,23 @@ def render(name,theme='dark',phase='setup',selected=False,victory=False):
     guide=min(h-103,top+side*2+gap+36); txt(d,'Match direction + distance  ·  push one stone' if phase=='push' else 'Choose a glowing destination  ·  1 or 2 spaces',w/2,guide,10,p['muted'],'center')
     y=h-65
     for (l,t,r,b),label,en in [((18,y,109,y+43),'UNDO',phase=='push'),((w/2-71,y,w/2+71,y+43),'NEW GAME',False),((w-101,y,w-18,y+43),'RULES',False)]:
+        if label=='NEW GAME': label='LOCAL PLAY' if not ai_chooser else 'LOCAL PLAY'
         rr(d,l,t,r,b,22,'#435344' if en else p['panel'],'#78916b' if en else p['edge']); txt(d,label,(l+r)/2,y+26,10,p['ink'] if en else p['muted'],'center',True)
     if victory:
         over=Image.new('RGBA',(W,H),(0,0,0,0)); od=ImageDraw.Draw(over); od.rectangle((0,STATUS,W,H-NAV),fill=('#080e0fb7' if theme=='dark' else '#dddad0af')); im=im.convert('RGBA'); im.alpha_composite(over); im=im.convert('RGB'); d=ImageDraw.Draw(im)
         cw=min(w-44,340); l=(w-cw)/2; t=h*.37; b=h*.64
         rr(d,l,t,l+cw,b,24,p['panel'],p['edge'],1.4); stone(d,w/2,t+43,18,1); txt(d,'VICTORY',w/2,t+80,10,p['gold'],'center',True); txt(d,'BLACK WINS',w/2,t+113,26,p['ink'],'center',True); txt(d,'A board is clear of opposing stones.',w/2,t+136,10,p['muted'],'center')
         rr(d,w/2-74,b-52,w/2+74,b-14,19,p['gold'],p['gold']); txt(d,'PLAY AGAIN',w/2,b-28,10,p['bg'],'center',True)
+    if ai_chooser:
+        overlay=Image.new('RGBA',(W,H),(0,0,0,0)); od=ImageDraw.Draw(overlay); od.rectangle((0,STATUS,W,H-NAV),fill=('#080e0fd7' if theme=='dark' else '#dddad0c8')); im=im.convert('RGBA'); im.alpha_composite(overlay); im=im.convert('RGB'); d=ImageDraw.Draw(im)
+        left=22; right=w-22; top=h*.27; bottom=h*.76
+        rr(d,left,top,right,bottom,22,p['panel'],p['edge'],1.3); txt(d,'CHOOSE AI DIFFICULTY',left+22,top+35,18,p['ink'],bold=True); txt(d,'You play Black. The AI plays White.',left+22,top+58,10,p['muted'])
+        for i,label in enumerate(['EASY','MEDIUM','HARD','BACK']):
+            y=top+78+i*54; rr(d,left+18,y,right-18,y+46,23,p['panel'],p['edge']); txt(d,label,w/2,y+28,10,p['muted'],'center',True)
     d=ImageDraw.Draw(im); d.rectangle((0,H-NAV,W,H),fill=p['bg']); d.rounded_rectangle((W//2-sc(54),H-sc(16),W//2+sc(54),H-sc(12)),radius=sc(2),fill=p['ink'])
     im.save(OUT/name,optimize=True)
 
 render('01-local-two-player-dark.png')
 render('02-clear-move-highlights.png',phase='setup',selected=True)
 render('03-clear-winner-light.png',theme='light',victory=True)
+render('04-ai-difficulty-picker.png',ai_chooser=True)

@@ -1,6 +1,8 @@
 # Shobu for Android
 
-An offline, local two-player Shobu game. Four boards stay in a fixed 2×2 layout, and players pass one phone or tablet between turns. Includes pulsing legal-move markers, simple push/ejection animation, undo during the push step, a clear named winner screen, and a persistent dark/light theme switch.
+An offline Shobu game for local two-player pass-and-play or a single player against the AI. Four boards stay in a fixed 2×2 layout. Includes pulsing legal-move markers, simple push/ejection animation, undo during the push step, a clear named winner screen, and a persistent dark/light theme switch.
+
+Choose **LOCAL TWO-PLAYER** or **PLAY VS AI** from the button at the bottom; choosing AI opens a second menu for **Easy**, **Medium**, or **Hard**. In AI games, you play Black and the AI plays White. The AI searches complete setup-plus-push turns and uses UCT Monte-Carlo tree search at the two higher levels.
 
 ## Play
 
@@ -9,7 +11,7 @@ An offline, local two-player Shobu game. Four boards stay in a fixed 2×2 layout
 - The second move may push one opposing stone, including off the edge. Stones cannot jump, and your own stones cannot be pushed.
 - Remove all opposing stones from any one board to win.
 
-The app works offline. It does not include accounts, ads, analytics, or in-app purchases.
+The app and AI work offline. It does not include accounts, ads, analytics, or in-app purchases.
 
 ## Build
 
@@ -21,7 +23,7 @@ Open the project folder in Android Studio or use Java 17+, Android SDK Platform 
 
 For a Play upload, build a release Android App Bundle (`bundleRelease`) and sign it with a private upload key. Keep signing credentials outside this public repository and use Play App Signing.
 
-The project targets Android 16 / API 36. The current repository APK is an installable v1.1 debug build; it is for direct testing and is not the Play upload package.
+The project targets Android 16 / API 36. The current repository APK is an installable v1.1 debug build; it predates the AI mode and is for direct testing, not the Play upload package. Build a new release APK or signed AAB from v1.3 before distributing the AI version. The **Android build** GitHub Actions workflow runs the unit tests and uploads the debug APK as a workflow artifact.
 
 ## Google Play preparation
 
@@ -30,8 +32,3 @@ Draft listing copy, privacy policy, icon, feature graphic, and portrait preview 
 ## License
 
 MIT. See [LICENSE](LICENSE).
-
-
-## Complete Play Store asset pack
-
-Download the [complete asset pack ZIP](playstore/Shobu-Play-Store-assets.zip), containing the app icon, feature graphic, phone screenshots, listing copy, privacy policy, and release checklist.

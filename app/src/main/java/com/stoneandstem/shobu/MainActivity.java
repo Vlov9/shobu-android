@@ -2,6 +2,8 @@ package com.stoneandstem.shobu;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -12,14 +14,24 @@ import android.view.View;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public final class MainActivity extends Activity {
+    private ShobuView gameView;
+
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().setStatusBarColor(Color.rgb(17, 28, 29));
         getWindow().setNavigationBarColor(Color.rgb(17, 28, 29));
-        ShobuView gameView = new ShobuView();
+        gameView = new ShobuView();
         setContentView(gameView);
+    }
+
+    @Override protected void onDestroy() {
+        if (gameView != null) gameView.dispose();
+        super.onDestroy();
     }
 
     private final class ShobuView extends View {
@@ -28,10 +40,19 @@ public final class MainActivity extends Activity {
         private final RectF[] boardRects = {new RectF(), new RectF(), new RectF(), new RectF()};
         private final RectF undoRect = new RectF(), restartRect = new RectF(), rulesRect = new RectF();
         private final RectF topRestartRect = new RectF(), topRulesRect = new RectF(), themeRect = new RectF(), victoryPlayRect = new RectF();
+        private final RectF[] aiChoiceRects = {new RectF(), new RectF(), new RectF(), new RectF()};
         private float cell, boardSide, boardGap, boardLeft, boardTop, layoutBottom;
         private int selectedBoard = -1, selectedRow = -1, selectedCol = -1;
         private List<GameRules.Move> options = Collections.emptyList();
         private boolean showRules = false;
+        private boolean showAiChooser = false;
+        private boolean showAiDifficultyChooser = false;
+        private boolean aiThinking = false;
+        private ShobuAi.Difficulty aiDifficulty;
+        private int gameGeneration = 0;
+        private final Handler mainHandler = new Handler(Looper.getMainLooper());
+        private final ExecutorService aiExecutor = Executors.newSingleThreadExecutor();
+        private Future<?> aiSearch;
         private MoveAnimation moveAnimation;
         private ValueAnimator activeAnimator;
         private float animationProgress = 1f;
@@ -45,6 +66,11 @@ public final class MainActivity extends Activity {
             super(MainActivity.this);
             setLayerType(View.LAYER_TYPE_SOFTWARE, null);
             darkMode = getPreferences(MODE_PRIVATE).getBoolean("dark_mode", true);
+            String savedDifficulty = getPreferences(MODE_PRIVATE).getString("ai_difficulty", "LOCAL");
+            if (!"LOCAL".equals(savedDifficulty)) {
+                try { aiDifficulty = ShobuAi.Difficulty.valueOf(savedDifficulty); }
+                catch (IllegalArgumentException ignored) { aiDifficulty = null; }
+            }
             applyTheme();
         }
 
@@ -64,6 +90,7 @@ public final class MainActivity extends Activity {
             drawActions(canvas, w, h);
             if (game.phase == GameRules.Phase.FINISHED) drawVictory(canvas, w, h);
             if (showRules) drawRules(canvas, w, h);
+            if (showAiChooser) drawAiChooser(canvas, w, h);
             canvas.restore();
             if (!options.isEmpty() && !showRules) postInvalidateDelayed(70);
         }
@@ -71,7 +98,8 @@ public final class MainActivity extends Activity {
         private void drawHeader(Canvas c, float w) {
             drawButton(c, themeRect, 18, 23, 38, 38, "", false);
             drawThemeIcon(c);
-            text(c, "STONE & STEM  /  LOCAL TABLE", 68, 25, 9, muted, Paint.Align.LEFT, true);
+            text(c, "STONE & STEM  /  " + (aiDifficulty == null ? "LOCAL TABLE" : "AI OPPONENT"),
+                    68, 25, 9, muted, Paint.Align.LEFT, true);
             text(c, "SHŌBU", 68, 59, 29, ink, Paint.Align.LEFT, true);
             text(c, "Quiet moves. Decisive pushes.", 70, 80, 12, muted, Paint.Align.LEFT, false);
             drawButton(c, topRulesRect, w - 105, 23, 38, 38, "?", false);
@@ -134,10 +162,19 @@ public final class MainActivity extends Activity {
                 text(c, "GAME OVER", right - 14, top + 37, 9, gold, Paint.Align.RIGHT, true);
                 return;
             }
+            if (aiThinking) {
+                stone(c, left + 31, top + 31, 10, GameRules.WHITE);
+                text(c, "AI THINKING", left + 52, top + 27, 15, ink, Paint.Align.LEFT, true);
+                text(c, "SEARCHING", right - 15, top + 27, 10, gold, Paint.Align.RIGHT, true);
+                text(c, "You play Black. The AI plays White.", left + 20, top + 49, 10, muted, Paint.Align.LEFT, false);
+                return;
+            }
             int player = game.currentPlayer;
             stone(c, left + 31, top + 31, 10, player);
             String color = player == GameRules.BLACK ? "BLACK" : "WHITE";
-            text(c, color + " TO MOVE", left + 52, top + 27, 15, ink, Paint.Align.LEFT, true);
+            String turnText = aiDifficulty != null && player == GameRules.BLACK ? "YOUR TURN · BLACK"
+                    : color + " TO MOVE";
+            text(c, turnText, left + 52, top + 27, 15, ink, Paint.Align.LEFT, true);
             String phase = game.phase == GameRules.Phase.SETUP ? "01  /  SET UP" : "02  /  PUSH";
             text(c, phase, right - 15, top + 27, 10, gold, Paint.Align.RIGHT, true);
             String hint = game.phase == GameRules.Phase.SETUP
@@ -310,7 +347,8 @@ public final class MainActivity extends Activity {
 
         private void drawGuide(Canvas c, float w, float h) {
             String guide;
-            if (game.phase == GameRules.Phase.SETUP) guide = "Choose a glowing destination  ·  1 or 2 spaces";
+            if (aiThinking) guide = "The AI is considering its turn.";
+            else if (game.phase == GameRules.Phase.SETUP) guide = "Choose a glowing destination  ·  1 or 2 spaces";
             else if (game.phase == GameRules.Phase.AGGRESSIVE) guide = "Match direction + distance  ·  push one stone";
             else guide = "Start a new game to play again";
             float y = Math.min(h - 103, layoutBottom + 36);
@@ -320,8 +358,32 @@ public final class MainActivity extends Activity {
         private void drawActions(Canvas c, float w, float h) {
             float y = h - 65;
             drawButton(c, undoRect, 18, y, 91, 43, "UNDO", game.phase == GameRules.Phase.AGGRESSIVE);
-            drawButton(c, restartRect, w / 2f - 71, y, 142, 43, "NEW GAME", false);
+            String opponent = aiDifficulty == null ? "LOCAL PLAY" : "AI: " + aiDifficulty.name();
+            drawButton(c, restartRect, w / 2f - 71, y, 142, 43, opponent, false);
             drawButton(c, rulesRect, w - 101, y, 83, 43, "RULES", false);
+        }
+
+        private void drawAiChooser(Canvas c, float w, float h) {
+            fill(c, 0, 0, w, h, darkMode ? Color.argb(215, 9, 15, 16) : Color.argb(200, 230, 227, 216));
+            float left = 22, right = w - 22, top = h * .27f, bottom = h * .76f;
+            rounded(c, left, top, right, bottom, 22, panel, panelEdge, 1.3f);
+            text(c, showAiDifficultyChooser ? "CHOOSE AI DIFFICULTY" : "CHOOSE OPPONENT",
+                    left + 22, top + 35, 18, ink, Paint.Align.LEFT, true);
+            text(c, showAiDifficultyChooser ? "You play Black. The AI plays White."
+                            : "Play locally with a friend or challenge the AI.",
+                    left + 22, top + 58, 10, muted, Paint.Align.LEFT, false);
+            String[] names = showAiDifficultyChooser
+                    ? new String[] {"EASY", "MEDIUM", "HARD", "BACK"}
+                    : new String[] {"LOCAL TWO-PLAYER", "PLAY VS AI"};
+            float buttonTop = top + 78, buttonH = 46, gap = 8;
+            for (int i = 0; i < names.length; i++) {
+                float y = buttonTop + i * (buttonH + gap);
+                boolean selected = showAiDifficultyChooser
+                        ? i < 3 && aiDifficulty == ShobuAi.Difficulty.values()[i]
+                        : (i == 0 && aiDifficulty == null) || (i == 1 && aiDifficulty != null);
+                drawButton(c, aiChoiceRects[i], left + 18, y, right - left - 36, buttonH,
+                        names[i], selected);
+            }
         }
 
         private void drawVictory(Canvas c, float w, float h) {
@@ -377,16 +439,43 @@ public final class MainActivity extends Activity {
             if (event.getAction() != MotionEvent.ACTION_UP) return true;
             float density = getResources().getDisplayMetrics().density;
             float x = event.getX() / density, y = event.getY() / density;
+            if (showAiChooser) {
+                boolean selected = false;
+                int choiceCount = showAiDifficultyChooser ? 4 : 2;
+                for (int i = 0; i < choiceCount; i++) {
+                    if (insideRect(x, y, aiChoiceRects[i])) {
+                        selectOpponent(i);
+                        selected = true;
+                        break;
+                    }
+                }
+                if (!selected) {
+                    showAiChooser = false;
+                    showAiDifficultyChooser = false;
+                    invalidate();
+                    maybeStartAiTurn();
+                }
+                return true;
+            }
             if (showRules) { showRules = false; invalidate(); return true; }
+            // Top corner shortcuts and bottom controls have independent hit rectangles.
+            if (insideRect(x, y, topRestartRect)) { newGame(); return true; }
+            if (insideRect(x, y, restartRect)) {
+                cancelAiSearch();
+                showAiChooser = true;
+                showAiDifficultyChooser = false;
+                clearSelection();
+                invalidate();
+                return true;
+            }
+            if (insideRect(x, y, rulesRect) || insideRect(x, y, topRulesRect)) { showRules = true; clearSelection(); invalidate(); return true; }
+            if (insideRect(x, y, themeRect)) { toggleTheme(); return true; }
             if (game.phase == GameRules.Phase.FINISHED) {
                 if (insideRect(x, y, victoryPlayRect)) newGame();
                 invalidate();
                 return true;
             }
-            // Top corner shortcuts and bottom controls have independent hit rectangles.
-            if (insideRect(x, y, restartRect) || insideRect(x, y, topRestartRect)) { newGame(); return true; }
-            if (insideRect(x, y, rulesRect) || insideRect(x, y, topRulesRect)) { showRules = true; clearSelection(); invalidate(); return true; }
-            if (insideRect(x, y, themeRect)) { toggleTheme(); return true; }
+            if (aiThinking || (aiDifficulty != null && game.currentPlayer == GameRules.WHITE)) return true;
             if (insideRect(x, y, undoRect)) {
                 if (game.undoPassive()) clearSelection();
                 invalidate(); return true;
@@ -425,6 +514,7 @@ public final class MainActivity extends Activity {
                 startMoveAnimation(move, enemyStep);
                 game.makeAggressive(move);
                 clearSelection();
+                maybeStartAiTurn();
                 return;
             }
             if (game.pieces[board][row][col] == game.currentPlayer) {
@@ -447,13 +537,85 @@ public final class MainActivity extends Activity {
             options = Collections.emptyList();
         }
 
+        private void selectOpponent(int choice) {
+            if (!showAiDifficultyChooser) {
+                if (choice == 1) {
+                    showAiDifficultyChooser = true;
+                    invalidate();
+                    return;
+                }
+                aiDifficulty = null;
+            } else {
+                if (choice == 3) {
+                    showAiDifficultyChooser = false;
+                    invalidate();
+                    return;
+                }
+                aiDifficulty = ShobuAi.Difficulty.values()[choice];
+            }
+            getPreferences(MODE_PRIVATE).edit()
+                    .putString("ai_difficulty", aiDifficulty == null ? "LOCAL" : aiDifficulty.name())
+                    .apply();
+            showAiChooser = false;
+            showAiDifficultyChooser = false;
+            newGame();
+        }
+
+        private void maybeStartAiTurn() {
+            if (aiDifficulty == null || aiThinking || game.phase != GameRules.Phase.SETUP
+                    || game.currentPlayer != GameRules.WHITE) return;
+            aiThinking = true;
+            clearSelection();
+            final int generation = gameGeneration;
+            final GameRules searchPosition = game.copy();
+            final ShobuAi.Difficulty level = aiDifficulty;
+            invalidate();
+            aiSearch = aiExecutor.submit(() -> {
+                ShobuAi.Turn turn = ShobuAi.chooseMove(searchPosition, level);
+                mainHandler.post(() -> {
+                    if (generation != gameGeneration) return;
+                    aiThinking = false;
+                    aiSearch = null;
+                    if (turn != null && game.phase == GameRules.Phase.SETUP
+                            && game.currentPlayer == GameRules.WHITE
+                            && game.makePassive(turn.setupMove)) {
+                        int enemyStep = 0;
+                        for (int step = 1; step <= turn.pushMove.distance; step++) {
+                            int row = turn.pushMove.fromRow + turn.pushMove.dy * step;
+                            int col = turn.pushMove.fromCol + turn.pushMove.dx * step;
+                            if (game.pieces[turn.pushMove.board][row][col]
+                                    == GameRules.opponent(GameRules.WHITE)) { enemyStep = step; break; }
+                        }
+                        startMoveAnimation(turn.pushMove, enemyStep);
+                        if (!game.makeAggressive(turn.pushMove)) game.undoPassive();
+                    }
+                    clearSelection();
+                    invalidate();
+                });
+            });
+        }
+
+        private void cancelAiSearch() {
+            gameGeneration++;
+            if (aiSearch != null) aiSearch.cancel(true);
+            aiSearch = null;
+            aiThinking = false;
+        }
+
         private void newGame() {
+            cancelAiSearch();
             if (activeAnimator != null) activeAnimator.cancel();
             moveAnimation = null;
             game.reset();
             showRules = false;
+            showAiChooser = false;
             clearSelection();
             invalidate();
+        }
+
+        void dispose() {
+            cancelAiSearch();
+            aiExecutor.shutdownNow();
         }
 
         private void drawButton(Canvas c, RectF rect, float x, float y, float w, float h,
