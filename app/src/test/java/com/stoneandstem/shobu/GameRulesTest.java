@@ -153,4 +153,40 @@ public class GameRulesTest {
         assertEquals(GameRules.BLACK, g.pieces[0][1][0]);
         assertNotEquals(GameRules.BLACK, g.winner); // Another white stone remains on this board.
     }
+
+    @Test public void twoSpaceDiagonalPushFromFinalSquareMovesEnemyOnlyOneSpace() {
+        GameRules g = emptyGame();
+        g.setStone(2, 3, 0, GameRules.BLACK);
+        g.setStone(0, 3, 0, GameRules.BLACK);
+        g.setStone(0, 1, 2, GameRules.WHITE);
+
+        GameRules.Move setup = find(g.passiveMovesFrom(2, 3, 0), 2, 3, 0, 1, 2);
+        assertNotNull(setup);
+        assertTrue(g.makePassive(setup));
+        GameRules.Move push = find(g.aggressiveMovesFrom(0, 3, 0), 0, 3, 0, 1, 2);
+        assertNotNull(push);
+        assertTrue(g.makeAggressive(push));
+
+        assertEquals(GameRules.BLACK, g.pieces[0][1][2]);
+        assertEquals(GameRules.WHITE, g.pieces[0][0][3]);
+        assertEquals(4, g.countPieces(GameRules.WHITE));
+        assertNotEquals(GameRules.BLACK, g.winner);
+    }
+
+    @Test public void twoSpaceDiagonalPushStillEjectsEnemyWhenNextCellIsOffBoard() {
+        GameRules g = emptyGame();
+        g.setStone(2, 3, 0, GameRules.BLACK);
+        g.setStone(0, 2, 1, GameRules.BLACK);
+        g.setStone(0, 0, 3, GameRules.WHITE);
+
+        GameRules.Move setup = find(g.passiveMovesFrom(2, 3, 0), 2, 3, 0, 1, 2);
+        assertNotNull(setup);
+        assertTrue(g.makePassive(setup));
+        GameRules.Move push = find(g.aggressiveMovesFrom(0, 2, 1), 0, 2, 1, 0, 3);
+        assertNotNull(push);
+        assertTrue(g.makeAggressive(push));
+
+        assertEquals(GameRules.BLACK, g.pieces[0][0][3]);
+        assertEquals(3, g.countPieces(GameRules.WHITE));
+    }
 }

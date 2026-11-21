@@ -7,7 +7,7 @@
 - 512 × 512 app icon and 1024 × 500 feature graphic
 - Four 1080 × 2400 portrait listing preview images
 - Privacy policy text for the current offline-only behavior
-- Source configured for target API 36 and version 1.3.1, including offline AI at three difficulties and system-bar safe layout
+- Source configured for target API 36 and version 1.3.2, including offline AI at three difficulties, system-bar safe layout, and corrected push distance for two-space moves
 - Unit tests for core game rules, edge cases, and AI turn legality
 - GitHub Actions workflow that runs the tests and builds a debug APK
 

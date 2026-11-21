@@ -265,8 +265,9 @@ public final class ShobuAi {
             if (state.pieces[push.board][row][col] == enemy) { enemyStep = step; break; }
         }
         if (enemyStep >= 0) {
-            int ejectedRow = push.fromRow + push.dy * (enemyStep + push.distance);
-            int ejectedCol = push.fromCol + push.dx * (enemyStep + push.distance);
+            int pushDistance = push.distance - enemyStep + 1;
+            int ejectedRow = push.fromRow + push.dy * (enemyStep + pushDistance);
+            int ejectedCol = push.fromCol + push.dx * (enemyStep + pushDistance);
             if (ejectedRow < 0 || ejectedRow >= GameRules.SIZE || ejectedCol < 0 || ejectedCol >= GameRules.SIZE)
                 score += 40.0;
             else score += 8.0;
@@ -294,8 +295,9 @@ public final class ShobuAi {
             if (state.pieces[push.board][row][col] == enemy) { enemyStep = step; break; }
         }
         if (enemyStep < 0 || countOnBoard(state, push.board, enemy) != 1) return false;
-        int finalRow = push.fromRow + push.dy * (enemyStep + push.distance);
-        int finalCol = push.fromCol + push.dx * (enemyStep + push.distance);
+        int pushDistance = push.distance - enemyStep + 1;
+        int finalRow = push.fromRow + push.dy * (enemyStep + pushDistance);
+        int finalCol = push.fromCol + push.dx * (enemyStep + pushDistance);
         return finalRow < 0 || finalRow >= GameRules.SIZE || finalCol < 0 || finalCol >= GameRules.SIZE;
     }
 

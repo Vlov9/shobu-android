@@ -251,8 +251,9 @@ public final class GameRules {
             }
         }
         if (enemyStep < 0) return true;
-        // The pushed stone advances the full move distance. Any occupied square in its path blocks it.
-        for (int step = 1; step <= move.distance; step++) {
+        // The stone is pushed one square for each step the attacker still has to make.
+        int pushDistance = move.distance - enemyStep + 1;
+        for (int step = 1; step <= pushDistance; step++) {
             int r = move.fromRow + move.dy * (enemyStep + step);
             int c = move.fromCol + move.dx * (enemyStep + step);
             if (inside(move.board, r, c) && pieces[move.board][r][c] != EMPTY) return false;
@@ -269,7 +270,8 @@ public final class GameRules {
         pieces[move.board][move.fromRow][move.fromCol] = EMPTY;
         if (enemyStep >= 0) {
             int er = move.fromRow + move.dy * enemyStep, ec = move.fromCol + move.dx * enemyStep;
-            int endRow = er + move.dy * move.distance, endCol = ec + move.dx * move.distance;
+            int pushDistance = move.distance - enemyStep + 1;
+            int endRow = er + move.dy * pushDistance, endCol = ec + move.dx * pushDistance;
             pieces[move.board][er][ec] = EMPTY;
             if (inside(move.board, endRow, endCol)) pieces[move.board][endRow][endCol] = enemy;
         }

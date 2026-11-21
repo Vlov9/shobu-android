@@ -330,8 +330,9 @@ public final class MainActivity extends Activity {
             if (enemyStep > 0) {
                 int er = move.fromRow + move.dy * enemyStep;
                 int ec = move.fromCol + move.dx * enemyStep;
-                int endRow = er + move.dy * move.distance;
-                int endCol = ec + move.dx * move.distance;
+                int pushDistance = move.distance - enemyStep + 1;
+                int endRow = er + move.dy * pushDistance;
+                int endCol = ec + move.dx * pushDistance;
                 boolean ejected = endRow < 0 || endRow >= 4 || endCol < 0 || endCol >= 4;
                 flights.add(new Flight(move.board, er, ec, endRow, endCol,
                         GameRules.opponent(game.currentPlayer), ejected));
