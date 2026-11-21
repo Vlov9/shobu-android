@@ -80,7 +80,7 @@ def render(name,theme='dark',phase='setup',selected=False,victory=False,ai_choos
     guide=min(h-103,top+side*2+gap+36); txt(d,'Match direction + distance  ·  push one stone' if phase=='push' else 'Choose a glowing destination  ·  1 or 2 spaces',w/2,guide,10,p['muted'],'center')
     y=h-65
     for (l,t,r,b),label,en in [((18,y,109,y+43),'UNDO',phase=='push'),((w/2-71,y,w/2+71,y+43),'NEW GAME',False),((w-101,y,w-18,y+43),'RULES',False)]:
-        if label=='NEW GAME': label='LOCAL PLAY' if not ai_chooser else 'LOCAL PLAY'
+        if label=='NEW GAME': label='PLAY MODE' if not ai_chooser else 'PLAY MODE'
         rr(d,l,t,r,b,22,'#435344' if en else p['panel'],'#78916b' if en else p['edge']); txt(d,label,(l+r)/2,y+26,10,p['ink'] if en else p['muted'],'center',True)
     if victory:
         over=Image.new('RGBA',(W,H),(0,0,0,0)); od=ImageDraw.Draw(over); od.rectangle((0,STATUS,W,H-NAV),fill=('#080e0fb7' if theme=='dark' else '#dddad0af')); im=im.convert('RGBA'); im.alpha_composite(over); im=im.convert('RGB'); d=ImageDraw.Draw(im)

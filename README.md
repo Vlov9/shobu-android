@@ -23,7 +23,7 @@ Open the project folder in Android Studio or use Java 17+, Android SDK Platform 
 
 For a Play upload, build a release Android App Bundle (`bundleRelease`) and sign it with a private upload key. Keep signing credentials outside this public repository and use Play App Signing.
 
-The project targets Android 16 / API 36. The [v1.3 debug APK](releases/Shobu-1.3.apk) is installable for direct testing; it is not the Play upload package. The **Android build** GitHub Actions workflow runs the unit tests and builds the APK. For Play, build a release APK or signed AAB and keep the upload key outside this public repository.
+The project targets Android 16 / API 36. The [v1.3.1 debug APK](releases/Shobu-1.3.1.apk) is installable for direct testing; it is not the Play upload package. The **Android build** GitHub Actions workflow runs the unit tests and builds the APK. For Play, build a release APK or signed AAB and keep the upload key outside this public repository.
 
 ## Google Play preparation
 

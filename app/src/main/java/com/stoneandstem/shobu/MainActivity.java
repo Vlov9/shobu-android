@@ -2,6 +2,7 @@ package com.stoneandstem.shobu;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.graphics.Canvas;
@@ -11,6 +12,7 @@ import android.graphics.RectF;
 import android.animation.ValueAnimator;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.WindowInsets;
 
 import java.util.Collections;
 import java.util.List;
@@ -23,10 +25,15 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        if (Build.VERSION.SDK_INT >= 30) getWindow().setDecorFitsSystemWindows(false);
+        else getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
         getWindow().setStatusBarColor(Color.rgb(17, 28, 29));
         getWindow().setNavigationBarColor(Color.rgb(17, 28, 29));
         gameView = new ShobuView();
         setContentView(gameView);
+        gameView.requestApplyInsets();
     }
 
     @Override protected void onDestroy() {
@@ -42,6 +49,7 @@ public final class MainActivity extends Activity {
         private final RectF topRestartRect = new RectF(), topRulesRect = new RectF(), themeRect = new RectF(), victoryPlayRect = new RectF();
         private final RectF[] aiChoiceRects = {new RectF(), new RectF(), new RectF(), new RectF()};
         private float cell, boardSide, boardGap, boardLeft, boardTop, layoutBottom;
+        private int insetLeftPx, insetTopPx, insetRightPx, insetBottomPx;
         private int selectedBoard = -1, selectedRow = -1, selectedCol = -1;
         private List<GameRules.Move> options = Collections.emptyList();
         private boolean showRules = false;
@@ -65,6 +73,23 @@ public final class MainActivity extends Activity {
         ShobuView() {
             super(MainActivity.this);
             setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+            setOnApplyWindowInsetsListener((view, insets) -> {
+                if (Build.VERSION.SDK_INT >= 30) {
+                    android.graphics.Insets bars = insets.getInsets(
+                            WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                    insetLeftPx = bars.left;
+                    insetTopPx = bars.top;
+                    insetRightPx = bars.right;
+                    insetBottomPx = bars.bottom;
+                } else {
+                    insetLeftPx = insets.getSystemWindowInsetLeft();
+                    insetTopPx = insets.getSystemWindowInsetTop();
+                    insetRightPx = insets.getSystemWindowInsetRight();
+                    insetBottomPx = insets.getSystemWindowInsetBottom();
+                }
+                invalidate();
+                return insets;
+            });
             darkMode = getPreferences(MODE_PRIVATE).getBoolean("dark_mode", true);
             String savedDifficulty = getPreferences(MODE_PRIVATE).getString("ai_difficulty", "LOCAL");
             if (!"LOCAL".equals(savedDifficulty)) {
@@ -77,9 +102,12 @@ public final class MainActivity extends Activity {
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             float density = getResources().getDisplayMetrics().density;
+            canvas.drawColor(bg);
             canvas.save();
+            canvas.translate(insetLeftPx, insetTopPx);
             canvas.scale(density, density);
-            float w = getWidth() / density, h = getHeight() / density;
+            float w = (getWidth() - insetLeftPx - insetRightPx) / density;
+            float h = (getHeight() - insetTopPx - insetBottomPx) / density;
             canvas.drawColor(bg);
             drawHeader(canvas, w);
             drawStatus(canvas, w);
@@ -137,8 +165,15 @@ public final class MainActivity extends Activity {
                 muted = Color.rgb(103, 116, 105);
                 gold = Color.rgb(164, 103, 38);
             }
-            getWindow().getDecorView().setSystemUiVisibility(darkMode ? 0
-                    : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+            int systemUiFlags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
+            if (!darkMode) {
+                systemUiFlags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+                if (Build.VERSION.SDK_INT >= 26)
+                    systemUiFlags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            }
+            getWindow().getDecorView().setSystemUiVisibility(systemUiFlags);
             getWindow().setStatusBarColor(bg);
             getWindow().setNavigationBarColor(bg);
         }
@@ -358,7 +393,7 @@ public final class MainActivity extends Activity {
         private void drawActions(Canvas c, float w, float h) {
             float y = h - 65;
             drawButton(c, undoRect, 18, y, 91, 43, "UNDO", game.phase == GameRules.Phase.AGGRESSIVE);
-            String opponent = aiDifficulty == null ? "LOCAL PLAY" : "AI: " + aiDifficulty.name();
+            String opponent = aiDifficulty == null ? "PLAY MODE" : "AI: " + aiDifficulty.name();
             drawButton(c, restartRect, w / 2f - 71, y, 142, 43, opponent, false);
             drawButton(c, rulesRect, w - 101, y, 83, 43, "RULES", false);
         }
@@ -438,7 +473,8 @@ public final class MainActivity extends Activity {
         @Override public boolean onTouchEvent(MotionEvent event) {
             if (event.getAction() != MotionEvent.ACTION_UP) return true;
             float density = getResources().getDisplayMetrics().density;
-            float x = event.getX() / density, y = event.getY() / density;
+            float x = (event.getX() - insetLeftPx) / density;
+            float y = (event.getY() - insetTopPx) / density;
             if (showAiChooser) {
                 boolean selected = false;
                 int choiceCount = showAiDifficultyChooser ? 4 : 2;
