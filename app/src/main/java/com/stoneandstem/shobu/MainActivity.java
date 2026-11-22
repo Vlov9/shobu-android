@@ -116,7 +116,7 @@ public final class MainActivity extends Activity {
             drawBoardLabels(canvas);
             drawGuide(canvas, w, h);
             drawActions(canvas, w, h);
-            if (game.phase == GameRules.Phase.FINISHED) drawVictory(canvas, w, h);
+            if (game.phase == GameRules.Phase.FINISHED && moveAnimation == null) drawVictory(canvas, w, h);
             if (showRules) drawRules(canvas, w, h);
             if (showAiChooser) drawAiChooser(canvas, w, h);
             canvas.restore();
@@ -322,11 +322,12 @@ public final class MainActivity extends Activity {
                     player == GameRules.BLACK ? Color.rgb(99, 110, 101) : Color.rgb(255, 250, 231), alpha);
         }
 
-        private void startMoveAnimation(GameRules.Move move, int enemyStep) {
+        private void startMoveAnimation(GameRules.Move move, int enemyStep, int movingPlayer,
+                                        long durationMs, Runnable onFinished) {
             if (activeAnimator != null) activeAnimator.cancel();
             java.util.ArrayList<Flight> flights = new java.util.ArrayList<>();
             flights.add(new Flight(move.board, move.fromRow, move.fromCol, move.toRow, move.toCol,
-                    game.currentPlayer, false));
+                    movingPlayer, false));
             if (enemyStep > 0) {
                 int er = move.fromRow + move.dy * enemyStep;
                 int ec = move.fromCol + move.dx * enemyStep;
@@ -335,22 +336,28 @@ public final class MainActivity extends Activity {
                 int endCol = ec + move.dx * pushDistance;
                 boolean ejected = endRow < 0 || endRow >= 4 || endCol < 0 || endCol >= 4;
                 flights.add(new Flight(move.board, er, ec, endRow, endCol,
-                        GameRules.opponent(game.currentPlayer), ejected));
+                        GameRules.opponent(movingPlayer), ejected));
             }
             moveAnimation = new MoveAnimation(flights);
             animationProgress = 0f;
             activeAnimator = ValueAnimator.ofFloat(0f, 1f);
-            activeAnimator.setDuration(420);
+            activeAnimator.setDuration(durationMs);
+            activeAnimator.setInterpolator(new android.view.animation.DecelerateInterpolator());
             activeAnimator.addUpdateListener(a -> {
                 animationProgress = (Float) a.getAnimatedValue();
                 invalidate();
             });
             activeAnimator.addListener(new android.animation.AnimatorListenerAdapter() {
+                private boolean cancelled;
+                @Override public void onAnimationCancel(android.animation.Animator animation) {
+                    cancelled = true;
+                }
                 @Override public void onAnimationEnd(android.animation.Animator animation) {
                     moveAnimation = null;
-                    activeAnimator = null;
+                    if (activeAnimator == animation) activeAnimator = null;
                     animationProgress = 1f;
                     invalidate();
+                    if (!cancelled && onFinished != null) onFinished.run();
                 }
             });
             activeAnimator.start();
@@ -473,6 +480,7 @@ public final class MainActivity extends Activity {
 
         @Override public boolean onTouchEvent(MotionEvent event) {
             if (event.getAction() != MotionEvent.ACTION_UP) return true;
+            if (activeAnimator != null) return true;
             float density = getResources().getDisplayMetrics().density;
             float x = (event.getX() - insetLeftPx) / density;
             float y = (event.getY() - insetTopPx) / density;
@@ -548,10 +556,14 @@ public final class MainActivity extends Activity {
                     int pr = move.fromRow + move.dy * step, pc = move.fromCol + move.dx * step;
                     if (game.pieces[move.board][pr][pc] == GameRules.opponent(game.currentPlayer)) { enemyStep = step; break; }
                 }
-                startMoveAnimation(move, enemyStep);
-                game.makeAggressive(move);
-                clearSelection();
-                maybeStartAiTurn();
+                int movingPlayer = game.currentPlayer;
+                if (game.makeAggressive(move)) {
+                    clearSelection();
+                    startMoveAnimation(move, enemyStep, movingPlayer, 700, () -> {
+                        invalidate();
+                        maybeStartAiTurn();
+                    });
+                }
                 return;
             }
             if (game.pieces[board][row][col] == game.currentPlayer) {
@@ -611,20 +623,34 @@ public final class MainActivity extends Activity {
                 ShobuAi.Turn turn = ShobuAi.chooseMove(searchPosition, level);
                 mainHandler.post(() -> {
                     if (generation != gameGeneration) return;
-                    aiThinking = false;
                     aiSearch = null;
                     if (turn != null && game.phase == GameRules.Phase.SETUP
                             && game.currentPlayer == GameRules.WHITE
                             && game.makePassive(turn.setupMove)) {
-                        int enemyStep = 0;
-                        for (int step = 1; step <= turn.pushMove.distance; step++) {
-                            int row = turn.pushMove.fromRow + turn.pushMove.dy * step;
-                            int col = turn.pushMove.fromCol + turn.pushMove.dx * step;
-                            if (game.pieces[turn.pushMove.board][row][col]
-                                    == GameRules.opponent(GameRules.WHITE)) { enemyStep = step; break; }
-                        }
-                        startMoveAnimation(turn.pushMove, enemyStep);
-                        if (!game.makeAggressive(turn.pushMove)) game.undoPassive();
+                        clearSelection();
+                        startMoveAnimation(turn.setupMove, 0, GameRules.WHITE, 650, () -> mainHandler.postDelayed(() -> {
+                            if (generation != gameGeneration || game.phase != GameRules.Phase.AGGRESSIVE
+                                    || game.currentPlayer != GameRules.WHITE) return;
+                            int enemyStep = 0;
+                            for (int step = 1; step <= turn.pushMove.distance; step++) {
+                                int row = turn.pushMove.fromRow + turn.pushMove.dy * step;
+                                int col = turn.pushMove.fromCol + turn.pushMove.dx * step;
+                                if (game.pieces[turn.pushMove.board][row][col]
+                                        == GameRules.opponent(GameRules.WHITE)) { enemyStep = step; break; }
+                            }
+                            if (!game.makeAggressive(turn.pushMove)) {
+                                game.undoPassive();
+                                aiThinking = false;
+                                invalidate();
+                                return;
+                            }
+                            startMoveAnimation(turn.pushMove, enemyStep, GameRules.WHITE, 800, () -> {
+                                aiThinking = false;
+                                invalidate();
+                            });
+                        }, 220));
+                    } else {
+                        aiThinking = false;
                     }
                     clearSelection();
                     invalidate();
