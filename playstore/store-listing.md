@@ -40,4 +40,4 @@ The app is a non-violent abstract board game with no chat, user-generated conten
 
 ## Release package notes
 
-The v1.3.3 source is configured for target API 36. Build a **signed Android App Bundle (AAB)** from that source for Play Console. The repository's debug APKs are for direct testing, not the Play upload package. Configure a release upload key outside the public repository and enroll in Play App Signing.
+The v1.4.0 source is configured for target API 36. Build a **signed Android App Bundle (AAB)** from that source for Play Console. The repository's debug APKs are for direct testing, not the Play upload package. Configure a release upload key outside the public repository and enroll in Play App Signing.

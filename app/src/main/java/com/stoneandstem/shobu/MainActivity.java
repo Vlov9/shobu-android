@@ -47,6 +47,7 @@ public final class MainActivity extends Activity {
         private final RectF[] boardRects = {new RectF(), new RectF(), new RectF(), new RectF()};
         private final RectF undoRect = new RectF(), restartRect = new RectF(), rulesRect = new RectF();
         private final RectF topRestartRect = new RectF(), topRulesRect = new RectF(), themeRect = new RectF(), victoryPlayRect = new RectF();
+        private final RectF storyContinueRect = new RectF();
         private final RectF[] aiChoiceRects = {new RectF(), new RectF(), new RectF(), new RectF()};
         private float cell, boardSide, boardGap, boardLeft, boardTop, layoutBottom;
         private int insetLeftPx, insetTopPx, insetRightPx, insetBottomPx;
@@ -55,6 +56,11 @@ public final class MainActivity extends Activity {
         private boolean showRules = false;
         private boolean showAiChooser = false;
         private boolean showAiDifficultyChooser = false;
+        private boolean storyMode = false;
+        private boolean storyOpeningDiagonal = false;
+        private boolean storyEpisode1Complete = false;
+        private int storyScene = 0; // 0 = none, 1 = opening, 2 = post-duel
+        private int storyPage = 0;
         private boolean aiThinking = false;
         private ShobuAi.Difficulty aiDifficulty;
         private int gameGeneration = 0;
@@ -91,6 +97,7 @@ public final class MainActivity extends Activity {
                 return insets;
             });
             darkMode = getPreferences(MODE_PRIVATE).getBoolean("dark_mode", true);
+            storyEpisode1Complete = getPreferences(MODE_PRIVATE).getBoolean("story_ep1_complete", false);
             String savedDifficulty = getPreferences(MODE_PRIVATE).getString("ai_difficulty", "LOCAL");
             if (!"LOCAL".equals(savedDifficulty)) {
                 try { aiDifficulty = ShobuAi.Difficulty.valueOf(savedDifficulty); }
@@ -119,6 +126,7 @@ public final class MainActivity extends Activity {
             if (game.phase == GameRules.Phase.FINISHED && moveAnimation == null) drawVictory(canvas, w, h);
             if (showRules) drawRules(canvas, w, h);
             if (showAiChooser) drawAiChooser(canvas, w, h);
+            if (storyScene != 0) drawStoryScene(canvas, w, h);
             canvas.restore();
             if (!options.isEmpty() && !showRules) postInvalidateDelayed(70);
         }
@@ -126,7 +134,8 @@ public final class MainActivity extends Activity {
         private void drawHeader(Canvas c, float w) {
             drawButton(c, themeRect, 18, 23, 38, 38, "", false);
             drawThemeIcon(c);
-            text(c, "STONE & STEM  /  " + (aiDifficulty == null ? "LOCAL TABLE" : "AI OPPONENT"),
+            text(c, storyMode ? "THE FOUR BANNERS  /  EPISODE 1"
+                            : "STONE & STEM  /  " + (aiDifficulty == null ? "LOCAL TABLE" : "AI OPPONENT"),
                     68, 25, 9, muted, Paint.Align.LEFT, true);
             text(c, "SHŌBU", 68, 59, 29, ink, Paint.Align.LEFT, true);
             text(c, "Quiet moves. Decisive pushes.", 70, 80, 12, muted, Paint.Align.LEFT, false);
@@ -199,9 +208,10 @@ public final class MainActivity extends Activity {
             }
             if (aiThinking) {
                 stone(c, left + 31, top + 31, 10, GameRules.WHITE);
-                text(c, "AI THINKING", left + 52, top + 27, 15, ink, Paint.Align.LEFT, true);
+                text(c, storyMode ? "TAVI IS THINKING" : "AI THINKING", left + 52, top + 27, 15, ink, Paint.Align.LEFT, true);
                 text(c, "SEARCHING", right - 15, top + 27, 10, gold, Paint.Align.RIGHT, true);
-                text(c, "You play Black. The AI plays White.", left + 20, top + 49, 10, muted, Paint.Align.LEFT, false);
+                text(c, storyMode ? "House Orme answers your move." : "You play Black. The AI plays White.",
+                        left + 20, top + 49, 10, muted, Paint.Align.LEFT, false);
                 return;
             }
             int player = game.currentPlayer;
@@ -380,7 +390,9 @@ public final class MainActivity extends Activity {
         private void drawBoardLabels(Canvas c) {
             for (int b = 0; b < 4; b++) {
                 RectF r = boardRects[b];
-                String home = GameRules.isHomeBoard(b, GameRules.BLACK) ? "BLACK HOME" : "WHITE HOME";
+                String home = storyMode
+                        ? (GameRules.isHomeBoard(b, GameRules.BLACK) ? "ASTER HOME" : "ORME HOME")
+                        : (GameRules.isHomeBoard(b, GameRules.BLACK) ? "BLACK HOME" : "WHITE HOME");
                 String shade = GameRules.shade(b) == 0 ? "DARK" : "LIGHT";
                 String label = home + "  ·  " + shade;
                 float baseline = b < 2 ? r.top - 8 : r.bottom + 14;
@@ -390,7 +402,7 @@ public final class MainActivity extends Activity {
 
         private void drawGuide(Canvas c, float w, float h) {
             String guide;
-            if (aiThinking) guide = "The AI is considering its turn.";
+            if (aiThinking) guide = storyMode ? "Tavi is considering his next oath." : "The AI is considering its turn.";
             else if (game.phase == GameRules.Phase.SETUP) guide = "Choose a glowing destination  ·  1 or 2 spaces";
             else if (game.phase == GameRules.Phase.AGGRESSIVE) guide = "Match direction + distance  ·  push one stone";
             else guide = "Start a new game to play again";
@@ -401,29 +413,31 @@ public final class MainActivity extends Activity {
         private void drawActions(Canvas c, float w, float h) {
             float y = h - 65;
             drawButton(c, undoRect, 18, y, 91, 43, "UNDO", game.phase == GameRules.Phase.AGGRESSIVE);
-            String opponent = aiDifficulty == null ? "PLAY MODE" : "AI: " + aiDifficulty.name();
+            String opponent = storyMode ? "EP. 1 · TAVI" : aiDifficulty == null ? "PLAY MODE" : "AI: " + aiDifficulty.name();
             drawButton(c, restartRect, w / 2f - 71, y, 142, 43, opponent, false);
             drawButton(c, rulesRect, w - 101, y, 83, 43, "RULES", false);
         }
 
         private void drawAiChooser(Canvas c, float w, float h) {
             fill(c, 0, 0, w, h, darkMode ? Color.argb(215, 9, 15, 16) : Color.argb(200, 230, 227, 216));
-            float left = 22, right = w - 22, top = h * .27f, bottom = h * .76f;
+            float left = 22, right = w - 22, top = h * .22f, bottom = h * .80f;
             rounded(c, left, top, right, bottom, 22, panel, panelEdge, 1.3f);
-            text(c, showAiDifficultyChooser ? "CHOOSE AI DIFFICULTY" : "CHOOSE OPPONENT",
+            text(c, showAiDifficultyChooser ? "CHOOSE AI DIFFICULTY" : "CHOOSE HOW TO PLAY",
                     left + 22, top + 35, 18, ink, Paint.Align.LEFT, true);
             text(c, showAiDifficultyChooser ? "You play Black. The AI plays White."
                             : "Play locally with a friend or challenge the AI.",
                     left + 22, top + 58, 10, muted, Paint.Align.LEFT, false);
             String[] names = showAiDifficultyChooser
                     ? new String[] {"EASY", "MEDIUM", "HARD", "BACK"}
-                    : new String[] {"LOCAL TWO-PLAYER", "PLAY VS AI"};
+                    : new String[] {"LOCAL TWO-PLAYER", "PLAY VS AI",
+                            storyEpisode1Complete ? "STORY · EPISODE 1 ✓" : "STORY · THE FOUR BANNERS"};
             float buttonTop = top + 78, buttonH = 46, gap = 8;
             for (int i = 0; i < names.length; i++) {
                 float y = buttonTop + i * (buttonH + gap);
                 boolean selected = showAiDifficultyChooser
                         ? i < 3 && aiDifficulty == ShobuAi.Difficulty.values()[i]
-                        : (i == 0 && aiDifficulty == null) || (i == 1 && aiDifficulty != null);
+                        : (i == 0 && aiDifficulty == null && !storyMode)
+                        || (i == 1 && aiDifficulty != null && !storyMode) || (i == 2 && storyMode);
                 drawButton(c, aiChoiceRects[i], left + 18, y, right - left - 36, buttonH,
                         names[i], selected);
             }
@@ -437,6 +451,17 @@ public final class MainActivity extends Activity {
             float top = h * .37f, bottom = h * .64f;
             rounded(c, left, top, left + cardW, bottom, 24, panel, panelEdge, 1.4f);
             int winner = game.winner;
+            if (storyMode) {
+                text(c, "EPISODE 1 COMPLETE", w / 2f, top + 37, 11, gold, Paint.Align.CENTER, true);
+                text(c, winner == GameRules.BLACK ? "NAYA EARNS ORME'S SUPPORT" : "TAVI SPONSORS NAYA",
+                        w / 2f, top + 76, 17, ink, Paint.Align.CENTER, true);
+                text(c, storyOpeningDiagonal ? "MASTERY SEAL EARNED · THE OPENING OATH"
+                                : "The flood-night ledger awaits.",
+                        w / 2f, top + 101, 9, muted, Paint.Align.CENTER, false);
+                drawButton(c, victoryPlayRect, w / 2f - 84, bottom - 52, 168, 38,
+                        "REPLAY EPISODE", true);
+                return;
+            }
             stone(c, w / 2f, top + 43, 18, winner);
             text(c, "VICTORY", w / 2f, top + 80, 10, gold, Paint.Align.CENTER, true);
             text(c, (winner == GameRules.BLACK ? "BLACK" : "WHITE") + " WINS", w / 2f, top + 113,
@@ -444,6 +469,83 @@ public final class MainActivity extends Activity {
             text(c, "A board is clear of opposing stones.", w / 2f, top + 136, 10, muted, Paint.Align.CENTER, false);
             float buttonTop = bottom - 52;
             drawButton(c, victoryPlayRect, w / 2f - 74, buttonTop, 148, 38, "PLAY AGAIN", true);
+        }
+
+        private void drawStoryScene(Canvas c, float w, float h) {
+            fill(c, 0, 0, w, h, darkMode ? Color.argb(224, 7, 12, 13) : Color.argb(218, 224, 219, 204));
+            float cardW = Math.min(w - 32, 390);
+            float left = (w - cardW) / 2f;
+            float top = Math.max(68, h * .18f);
+            float bottom = Math.min(h - 54, h * .82f);
+            rounded(c, left, top, left + cardW, bottom, 22, panel, gold, 1.2f);
+            String speaker = storySpeaker();
+            int badge = "TAVI ORME".equals(speaker) ? Color.rgb(183, 112, 55)
+                    : "SOL VEYR".equals(speaker) ? Color.rgb(149, 57, 59) : Color.rgb(95, 137, 149);
+            circle(c, left + 40, top + 39, 18, badge);
+            text(c, speaker.substring(0, 1), left + 40, top + 45, 17, bg, Paint.Align.CENTER, true);
+            text(c, speaker, left + 68, top + 36, 11, gold, Paint.Align.LEFT, true);
+            text(c, storyScene == 1 ? "THE BANNERLESS CHALLENGER" : "THE FLOOD-NIGHT LEDGER",
+                    left + 22, top + 81, 16, ink, Paint.Align.LEFT, true);
+            float yy = top + 117;
+            for (String line : storyLines()) {
+                text(c, line, left + 22, yy, 11, muted, Paint.Align.LEFT, false);
+                yy += 22;
+            }
+            float buttonTop = bottom - 52;
+            String button = storyPage < 2 ? "NEXT" : storyScene == 1 ? "BEGIN DUEL" : "CONTINUE";
+            drawButton(c, storyContinueRect, w / 2f - 82, buttonTop, 164, 38, button, true);
+        }
+
+        private String storySpeaker() {
+            if (storyScene == 1) {
+                if (storyPage == 0) return "THE CONCLAVE";
+                if (storyPage == 1) return "TAVI ORME";
+                return "THE OATH";
+            }
+            if (storyPage == 0) return "TAVI ORME";
+            if (storyPage == 1) return "NAYA ASTER";
+            return "SOL VEYR";
+        }
+
+        private String[] storyLines() {
+            if (storyScene == 1) {
+                if (storyPage == 0) return new String[] {
+                        "For fifty years, the four Houses have settled",
+                        "their claims at the River Conclave.",
+                        "Tonight, House Aster has no banner."
+                };
+                if (storyPage == 1) return new String[] {
+                        "Tavi: I thought the last Aster would be taller.",
+                        "Naya: I thought Orme's champion would be quieter.",
+                        "Tavi: I'm not the champion. I'm the opening act."
+                };
+                return new String[] {
+                        "SET UP: move 1 or 2 spaces on a homeboard.",
+                        "PUSH: repeat the direction and distance on a",
+                        "board of the opposite shade. You play Black."
+                };
+            }
+            if (storyPage == 0) return game.winner == GameRules.BLACK
+                    ? new String[] {
+                            "The crowd calls it an upset.",
+                            "Tavi calls it a reason to keep watching.",
+                            "He slips you a bronze archive key."
+                    }
+                    : new String[] {
+                            "Tavi blocks the hecklers' view.",
+                            "You saw the board when they saw the banners.",
+                            "He offers to sponsor your next match."
+                    };
+            if (storyPage == 1) return new String[] {
+                    "The flood-night ledger records a two-space",
+                    "setup followed by a one-space aggressive move.",
+                    "That turn could not have happened."
+            };
+            return new String[] {
+                    "My brother's seal is on that page, says Sol.",
+                    "I don't know who put it there.",
+                    "Meet me at the next banner."
+            };
         }
 
         private void drawRules(Canvas c, float w, float h) {
@@ -484,9 +586,13 @@ public final class MainActivity extends Activity {
             float density = getResources().getDisplayMetrics().density;
             float x = (event.getX() - insetLeftPx) / density;
             float y = (event.getY() - insetTopPx) / density;
+            if (storyScene != 0) {
+                if (insideRect(x, y, storyContinueRect)) advanceStoryScene();
+                return true;
+            }
             if (showAiChooser) {
                 boolean selected = false;
-                int choiceCount = showAiDifficultyChooser ? 4 : 2;
+                int choiceCount = showAiDifficultyChooser ? 4 : 3;
                 for (int i = 0; i < choiceCount; i++) {
                     if (insideRect(x, y, aiChoiceRects[i])) {
                         selectOpponent(i);
@@ -504,7 +610,10 @@ public final class MainActivity extends Activity {
             }
             if (showRules) { showRules = false; invalidate(); return true; }
             // Top corner shortcuts and bottom controls have independent hit rectangles.
-            if (insideRect(x, y, topRestartRect)) { newGame(); return true; }
+            if (insideRect(x, y, topRestartRect)) {
+                if (storyMode) beginStoryEpisode(); else newGame();
+                return true;
+            }
             if (insideRect(x, y, restartRect)) {
                 cancelAiSearch();
                 showAiChooser = true;
@@ -516,7 +625,9 @@ public final class MainActivity extends Activity {
             if (insideRect(x, y, rulesRect) || insideRect(x, y, topRulesRect)) { showRules = true; clearSelection(); invalidate(); return true; }
             if (insideRect(x, y, themeRect)) { toggleTheme(); return true; }
             if (game.phase == GameRules.Phase.FINISHED) {
-                if (insideRect(x, y, victoryPlayRect)) newGame();
+                if (insideRect(x, y, victoryPlayRect)) {
+                    if (storyMode) beginStoryEpisode(); else newGame();
+                }
                 invalidate();
                 return true;
             }
@@ -558,10 +669,13 @@ public final class MainActivity extends Activity {
                 }
                 int movingPlayer = game.currentPlayer;
                 if (game.makeAggressive(move)) {
+                    if (storyMode && game.turnNumber == 2 && move.distance == 2 && move.dx != 0 && move.dy != 0)
+                        storyOpeningDiagonal = true;
                     clearSelection();
                     startMoveAnimation(move, enemyStep, movingPlayer, 700, () -> {
                         invalidate();
-                        maybeStartAiTurn();
+                        if (storyMode && game.phase == GameRules.Phase.FINISHED) beginStoryOutro();
+                        else maybeStartAiTurn();
                     });
                 }
                 return;
@@ -593,7 +707,14 @@ public final class MainActivity extends Activity {
                     invalidate();
                     return;
                 }
+                if (choice == 2) {
+                    aiDifficulty = ShobuAi.Difficulty.EASY;
+                    storyMode = true;
+                    beginStoryEpisode();
+                    return;
+                }
                 aiDifficulty = null;
+                storyMode = false;
             } else {
                 if (choice == 3) {
                     showAiDifficultyChooser = false;
@@ -601,6 +722,7 @@ public final class MainActivity extends Activity {
                     return;
                 }
                 aiDifficulty = ShobuAi.Difficulty.values()[choice];
+                storyMode = false;
             }
             getPreferences(MODE_PRIVATE).edit()
                     .putString("ai_difficulty", aiDifficulty == null ? "LOCAL" : aiDifficulty.name())
@@ -608,6 +730,36 @@ public final class MainActivity extends Activity {
             showAiChooser = false;
             showAiDifficultyChooser = false;
             newGame();
+        }
+
+        private void beginStoryEpisode() {
+            storyMode = true;
+            aiDifficulty = ShobuAi.Difficulty.EASY;
+            newGame();
+            storyScene = 1;
+            storyPage = 0;
+            storyOpeningDiagonal = false;
+            invalidate();
+        }
+
+        private void beginStoryOutro() {
+            if (!storyMode || storyScene == 2) return;
+            storyEpisode1Complete = true;
+            getPreferences(MODE_PRIVATE).edit().putBoolean("story_ep1_complete", true).apply();
+            storyScene = 2;
+            storyPage = 0;
+            invalidate();
+        }
+
+        private void advanceStoryScene() {
+            int lastPage = 2;
+            if (storyPage < lastPage) {
+                storyPage++;
+            } else {
+                storyScene = 0;
+                storyPage = 0;
+            }
+            invalidate();
         }
 
         private void maybeStartAiTurn() {
@@ -646,6 +798,7 @@ public final class MainActivity extends Activity {
                             }
                             startMoveAnimation(turn.pushMove, enemyStep, GameRules.WHITE, 800, () -> {
                                 aiThinking = false;
+                                if (storyMode && game.phase == GameRules.Phase.FINISHED) beginStoryOutro();
                                 invalidate();
                             });
                         }, 220));
@@ -669,6 +822,8 @@ public final class MainActivity extends Activity {
             cancelAiSearch();
             if (activeAnimator != null) activeAnimator.cancel();
             moveAnimation = null;
+            storyScene = 0;
+            storyPage = 0;
             game.reset();
             showRules = false;
             showAiChooser = false;

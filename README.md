@@ -1,8 +1,8 @@
 # Shobu for Android
 
-An offline Shobu game for local two-player pass-and-play or a single player against the AI. Four boards stay in a fixed 2×2 layout. Includes pulsing legal-move markers, simple push/ejection animation, undo during the push step, a clear named winner screen, and a persistent dark/light theme switch.
+An offline Shobu game for local two-player pass-and-play, a single player against the AI, or a story duel in **The Four Banners**. Four boards stay in a fixed 2×2 layout. Includes pulsing legal-move markers, simple push/ejection animation, undo during the push step, a clear named winner screen, and a persistent dark/light theme switch.
 
-Choose **LOCAL TWO-PLAYER** or **PLAY VS AI** from the button at the bottom; choosing AI opens a second menu for **Easy**, **Medium**, or **Hard**. In AI games, you play Black and the AI plays White. The AI searches complete setup-plus-push turns and uses UCT Monte-Carlo tree search at the two higher levels.
+Choose **LOCAL TWO-PLAYER**, **PLAY VS AI**, or **STORY · THE FOUR BANNERS** from the button at the bottom; choosing AI opens a second menu for **Easy**, **Medium**, or **Hard**. In AI games, you play Black and the AI plays White. The AI searches complete setup-plus-push turns and uses UCT Monte-Carlo tree search at the two higher levels.
 
 ## Play
 
@@ -24,7 +24,7 @@ Open the project folder in Android Studio or use Java 17+, Android SDK Platform 
 
 For a Play upload, build a release Android App Bundle (`bundleRelease`) and sign it with a private upload key. Keep signing credentials outside this public repository and use Play App Signing.
 
-The project targets Android 16 / API 36. The [v1.3.3 debug APK](releases/Shobu-1.3.3.apk) is installable for direct testing; it is not the Play upload package. The **Android build** GitHub Actions workflow runs the unit tests and builds the APK. For Play, build a release APK or signed AAB and keep the upload key outside this public repository.
+The project targets Android 16 / API 36. The [v1.4.0 debug APK](releases/Shobu-1.4.0.apk) is installable for direct testing; it is not the Play upload package. The **Android build** GitHub Actions workflow runs the unit tests and builds the APK. For Play, build a release APK or signed AAB and keep the upload key outside this public repository.
 
 ## Google Play preparation
 
@@ -33,3 +33,7 @@ Draft listing copy, privacy policy, icon, feature graphic, and portrait preview 
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Story mode
+
+Episode 1, **The Bannerless Challenger**, is playable. Its season outline and canonical English dialogue are in [`story/season-one.md`](story/season-one.md).
